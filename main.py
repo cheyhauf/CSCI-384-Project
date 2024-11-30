@@ -16,7 +16,6 @@ if len(sys.argv) > 1:
     else:
         print("Invalid argument. Use '--ma' for multi-agent or '--sa' for single-agent.")
         sys.exit(1)
-
 else:
     print("Invalid argument. Use '--ma' for multi-agent or '--sa' for single-agent.")
     sys.exit(1)
@@ -38,7 +37,7 @@ PIECE_RADIUS = SQUARE_SIZE // 3  # Radius of a piece
 # up to a maximum of around 7 or 8 until speed becomes a massive issue, but changing
 # these values arround allows us to produce different terminal states
 AGENT_ONE_DEPTH = 3
-AGENT_TWO_DEPTH = 4
+AGENT_TWO_DEPTH = 2
 
 # RGB color definitions
 BOARD_LIGHT = (255, 255, 255)  # Light squares
@@ -381,10 +380,10 @@ if __name__ == '__main__':
 
             # Check if the game is over
             if game.is_game_over():
-                print("Game Over!")
-                winner = "Blue" if any(
+                print("Game Over")
+                winner = "Red" if any(
                     PLAYER_PIECE in row or PLAYER_KING in row for row in game.board
-                ) else "Black"
+                ) else "Blue"
                 print(f"The winner is: {winner}")
                 running = False
                 break
@@ -392,7 +391,7 @@ if __name__ == '__main__':
             # Get the current state
             current_state = game.get_hashable_state()
             if current_state in visited_states:
-                print("Draw due to repeated state!")
+                print("Draw due to repeated state")
                 running = False
                 break
             visited_states.add(current_state)
@@ -400,25 +399,25 @@ if __name__ == '__main__':
             # Increment turn counter and check turn limit
             turn_count += 1
             if turn_count > turn_limit:
-                print("Draw due to turn limit!")
+                print("Draw due to turn limit")
                 running = False
                 break
 
             # AI Turn Logic
             if game.current_turn == PLAYER_PIECE:
-                print("White AI's turn...")
+                print("Red AI's turn...")
                 _, best_move_sequence = white_ai.minimax(game, white_ai.max_depth, float('-inf'), float('inf'), False)
             else:
-                print("Black AI's turn...")
+                print("Blue AI's turn...")
                 _, best_move_sequence = black_ai.minimax(game, black_ai.max_depth, float('-inf'), float('inf'), True)
 
             if best_move_sequence:
-                print(f"Best move for {'White' if game.current_turn == PLAYER_PIECE else 'Black'}: {best_move_sequence}")
+                print(f"Best move for {'Red' if game.current_turn == PLAYER_PIECE else 'Blue'}: {best_move_sequence}")
                 for i in range(len(best_move_sequence) - 1):
                     game.move_piece(best_move_sequence[i], best_move_sequence[i + 1])
                 # Turn switching is handled inside move_piece
             else:
-                print(f"No valid moves for {'White' if game.current_turn == PLAYER_PIECE else 'Black'}. Game Over!")
+                print(f"No valid moves for {'Red' if game.current_turn == PLAYER_PIECE else 'Blue'}. Game Over!")
                 running = False
 
             # Limit the frame rate
