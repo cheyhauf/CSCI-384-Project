@@ -4,8 +4,27 @@ Project - Checkers Game
 Developed by Wyatt Hanson & Cheydan Hauf
 """
 
-import pygame
 import sys
+mode = ''
+
+# Handle Agent V Agent or Player VS player
+if len(sys.argv) > 1:
+    if "--ma" in sys.argv:
+        mode = "ma"
+    elif "--sa" in sys.argv:
+        mode = "sa"
+    else:
+        print("Invalid argument. Use '--ma' for multi-agent or '--sa' for single-agent.")
+        sys.exit(1)
+
+else:
+    print("Invalid argument. Use '--ma' for multi-agent or '--sa' for single-agent.")
+    sys.exit(1)
+
+print(mode)
+
+import pygame
+
 from copy import deepcopy
 
 # Constants
@@ -14,32 +33,39 @@ GRID_SIZE = 8  # Number of squares per row and column
 SQUARE_SIZE = WINDOW_SIZE // GRID_SIZE  # Size of each square in pixels
 PIECE_RADIUS = SQUARE_SIZE // 3  # Radius of a piece
 
+
+# Confiuguration for the agent ai. Increasing the depth increased the difficulty 
+# up to a maximum of around 7 or 8 until speed becomes a massive issue, but changing
+# these values arround allows us to produce different terminal states
+AGENT_ONE_DEPTH = 3
+AGENT_TWO_DEPTH = 4
+
 # RGB color definitions
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)   # Player pieces
-BLUE = (0, 0, 255)  # AI pieces
+BOARD_LIGHT = (255, 255, 255)  # Light squares
+BOARD_DARK = (0, 0, 0)         # Dark squares
+PLAYER_PIECE_COLOR = (255, 0, 0)  # Red for player pieces
+AI_PIECE_COLOR = (0, 0, 255)      # Blue for AI pieces
 
 # Piece Constants
 EMPTY = 0
-WHITE_PIECE = 1
-BLACK_PIECE = 2
-WHITE_KING = 3
-BLACK_KING = 4
+PLAYER_PIECE = 1
+AI_PIECE = 2
+PLAYER_KING = 3
+AI_KING = 4
 
 # Directions for piece movement
 MOVE_DIRECTIONS = {
-    WHITE_PIECE: [(-1, -1), (-1, 1)],
-    BLACK_PIECE: [(1, -1), (1, 1)],
-    WHITE_KING: [(-1, -1), (-1, 1), (1, -1), (1, 1)],
-    BLACK_KING: [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+    PLAYER_PIECE: [(-1, -1), (-1, 1)],
+    AI_PIECE: [(1, -1), (1, 1)],
+    PLAYER_KING: [(-1, -1), (-1, 1), (1, -1), (1, 1)],
+    AI_KING: [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 }
 
 """Tracks and displays the game state and computes valid moves."""
 class GameState:
     def __init__(self):
         self.board = self.create_initial_board()
-        self.current_turn = WHITE_PIECE
+        self.current_turn = PLAYER_PIECE
         self.selected_piece = None
         self.valid_moves = {}
 
@@ -51,9 +77,9 @@ class GameState:
                 # Pieces are placed only on dark squares
                 if (row + col) % 2 == 1:
                     if row < 3:
-                        board[row][col] = BLACK_PIECE
+                        board[row][col] = AI_PIECE
                     elif row > 4:
-                        board[row][col] = WHITE_PIECE
+                        board[row][col] = PLAYER_PIECE
         return board
 
     """Draw the checkers board and pieces."""
@@ -61,7 +87,7 @@ class GameState:
         for row in range(GRID_SIZE):
             for col in range(GRID_SIZE):
                 # Alternate square colors
-                color = WHITE if (row + col) % 2 == 0 else BLACK
+                color = BOARD_LIGHT if (row + col) % 2 == 0 else BOARD_DARK
                 pygame.draw.rect(
                     screen,
                     color,
@@ -84,7 +110,7 @@ class GameState:
 
     """Draw a piece on the board."""
     def draw_piece(self, screen, row, col, piece):
-        color = RED if piece in [WHITE_PIECE, WHITE_KING] else BLUE
+        color = PLAYER_PIECE_COLOR if piece in [PLAYER_PIECE, PLAYER_KING] else AI_PIECE_COLOR
         pygame.draw.circle(
             screen,
             color,
@@ -92,11 +118,11 @@ class GameState:
              row * SQUARE_SIZE + SQUARE_SIZE // 2),
             PIECE_RADIUS
         )
-        if piece in [WHITE_KING, BLACK_KING]:
+        if piece in [PLAYER_KING, AI_KING]:
             # Indicate king pieces with a smaller white circle
             pygame.draw.circle(
                 screen,
-                WHITE,
+                BOARD_LIGHT,
                 (col * SQUARE_SIZE + SQUARE_SIZE // 2,
                  row * SQUARE_SIZE + SQUARE_SIZE // 2),
                 PIECE_RADIUS // 2
@@ -159,10 +185,10 @@ class GameState:
 
     """Return a list of opponent's pieces based on the current piece."""
     def get_opponent_pieces(self, piece): 
-        if piece in [WHITE_PIECE, WHITE_KING]:
-            return [BLACK_PIECE, BLACK_KING]
-        elif piece in [BLACK_PIECE, BLACK_KING]:
-            return [WHITE_PIECE, WHITE_KING]
+        if piece in [PLAYER_PIECE, PLAYER_KING]:
+            return [AI_PIECE, AI_KING]
+        elif piece in [AI_PIECE, AI_KING]:
+            return [PLAYER_PIECE, PLAYER_KING]
         return []
 
     """Move a piece on the board from start_pos to end_pos."""
@@ -181,13 +207,13 @@ class GameState:
 
         # Promote to king if the piece reaches the opposite end
         kinged = False
-        if piece == WHITE_PIECE and end_row == 0:
-            self.board[end_row][end_col] = WHITE_KING
-            piece = WHITE_KING
+        if piece == PLAYER_PIECE and end_row == 0:
+            self.board[end_row][end_col] = PLAYER_KING
+            piece = PLAYER_KING
             kinged = True
-        elif piece == BLACK_PIECE and end_row == GRID_SIZE - 1:
-            self.board[end_row][end_col] = BLACK_KING
-            piece = BLACK_KING
+        elif piece == AI_PIECE and end_row == GRID_SIZE - 1:
+            self.board[end_row][end_col] = AI_KING
+            piece = AI_KING
             kinged = True
 
         # Check for additional captures if the last move was a capture and the piece was not kinged
@@ -203,7 +229,7 @@ class GameState:
         # No additional captures or piece was kinged; switch turns
         self.selected_piece = None
         self.valid_moves = {}
-        self.current_turn = BLACK_PIECE if self.current_turn == WHITE_PIECE else WHITE_PIECE
+        self.current_turn = AI_PIECE if self.current_turn == PLAYER_PIECE else PLAYER_PIECE
 
     """Find all valid moves for a player, considering mandatory captures."""
     def get_all_player_moves(self, player):
@@ -227,9 +253,13 @@ class GameState:
 
     """Check if the game is over (one player has no pieces left)."""
     def is_game_over(self):
-        white_pieces = sum(row.count(WHITE_PIECE) + row.count(WHITE_KING) for row in self.board)
-        black_pieces = sum(row.count(BLACK_PIECE) + row.count(BLACK_KING) for row in self.board)
+        white_pieces = sum(row.count(PLAYER_PIECE) + row.count(PLAYER_KING) for row in self.board)
+        black_pieces = sum(row.count(AI_PIECE) + row.count(AI_KING) for row in self.board)
         return white_pieces == 0 or black_pieces == 0
+    
+    """Return a hashable representation of the current game state."""
+    def get_hashable_state(self):
+        return (tuple(tuple(row) for row in self.board), self.current_turn)
 
 
 class Agent:
@@ -243,7 +273,7 @@ class Agent:
         if depth == 0 or state.is_game_over():
             return self.evaluate_board(state), None
 
-        player = BLACK_PIECE if maximizing_player else WHITE_PIECE
+        player = AI_PIECE if maximizing_player else PLAYER_PIECE
 
         valid_moves = self.get_all_valid_moves(state, player)
         best_move = None
@@ -280,12 +310,17 @@ class Agent:
     """ Heuristic evaluation function. Returns a score based on the current board state."""
     def evaluate_board(self, state):       
         white_score = sum(
-            row.count(WHITE_PIECE) + 2 * row.count(WHITE_KING) for row in state.board
+            row.count(PLAYER_PIECE) + 2 * row.count(PLAYER_PIECE) for row in state.board
         )
         black_score = sum(
-            row.count(BLACK_PIECE) + 2 * row.count(BLACK_KING) for row in state.board
+            row.count(AI_PIECE) + 2 * row.count(AI_KING) for row in state.board
         )
-        return black_score - white_score
+
+        # Bonus for advancing pieces and penalize for staying in the same position
+        white_bonus = sum(row_idx for row_idx, row in enumerate(state.board) for piece in row if piece in [PLAYER_PIECE, PLAYER_KING])
+        black_bonus = sum((GRID_SIZE - 1 - row_idx) for row_idx, row in enumerate(state.board) for piece in row if piece in [AI_PIECE, AI_KING])
+
+        return (black_score + black_bonus) - (white_score + white_bonus)
 
     """Get all valid moves for the player, considering mandatory captures."""
     def get_all_valid_moves(self, state, player):   
@@ -318,75 +353,147 @@ class Agent:
             new_state.move_piece(start_pos, end_pos)
         return new_state
 
-
 if __name__ == '__main__':
-    # Initialize Pygame and create the game window
-    pygame.init()
-    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
-    pygame.display.set_caption("Checkers")
-    clock = pygame.time.Clock()
 
-    # Create the game state and AI agent
-    game = GameState()
-    ai_agent = Agent()
+    if (mode == "ma"):
 
-    running = True
-    while running:
-        # Clear the screen and draw the board
-        screen.fill(WHITE)
-        game.draw_board(screen)
-        pygame.display.flip()
+        # Initialize Pygame and create the game window
+        pygame.init()
+        screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+        pygame.display.set_caption("Checkers")
+        clock = pygame.time.Clock()
 
-        # Handle AI's turn
-        if game.current_turn == BLACK_PIECE:
-            _, best_move_sequence = ai_agent.minimax(game, ai_agent.max_depth, float('-inf'), float('inf'), True)
+        # Create the game state and two AI agents
+        game = GameState()
+        white_ai = Agent(max_depth=AGENT_ONE_DEPTH)  # Blue Ai
+        black_ai = Agent(max_depth=AGENT_TWO_DEPTH)
+
+        visited_states = set()  # Track visited states
+        turn_limit = 2000  # Optional: Limit the number of turns to prevent infinite games
+        turn_count = 0
+
+        running = True
+        while running:
+            # Clear the screen and draw the board
+            screen.fill(BOARD_LIGHT)
+            game.draw_board(screen)
+            pygame.display.flip()
+
+            # Check if the game is over
+            if game.is_game_over():
+                print("Game Over!")
+                winner = "Blue" if any(
+                    PLAYER_PIECE in row or PLAYER_KING in row for row in game.board
+                ) else "Black"
+                print(f"The winner is: {winner}")
+                running = False
+                break
+
+            # Get the current state
+            current_state = game.get_hashable_state()
+            if current_state in visited_states:
+                print("Draw due to repeated state!")
+                running = False
+                break
+            visited_states.add(current_state)
+
+            # Increment turn counter and check turn limit
+            turn_count += 1
+            if turn_count > turn_limit:
+                print("Draw due to turn limit!")
+                running = False
+                break
+
+            # AI Turn Logic
+            if game.current_turn == PLAYER_PIECE:
+                print("White AI's turn...")
+                _, best_move_sequence = white_ai.minimax(game, white_ai.max_depth, float('-inf'), float('inf'), False)
+            else:
+                print("Black AI's turn...")
+                _, best_move_sequence = black_ai.minimax(game, black_ai.max_depth, float('-inf'), float('inf'), True)
+
             if best_move_sequence:
+                print(f"Best move for {'White' if game.current_turn == PLAYER_PIECE else 'Black'}: {best_move_sequence}")
                 for i in range(len(best_move_sequence) - 1):
                     game.move_piece(best_move_sequence[i], best_move_sequence[i + 1])
                 # Turn switching is handled inside move_piece
             else:
-                print("AI has no valid moves. You win!")
+                print(f"No valid moves for {'White' if game.current_turn == PLAYER_PIECE else 'Black'}. Game Over!")
                 running = False
 
-        # Handle events (player's turn)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN and game.current_turn == WHITE_PIECE:
-                x, y = pygame.mouse.get_pos()
-                row = y // SQUARE_SIZE
-                col = x // SQUARE_SIZE
+            # Limit the frame rate
+            clock.tick(60)
 
-                player_moves = game.get_all_player_moves(game.current_turn)
-                if not player_moves:
-                    print("You have no valid moves. Game Over!")
-                    running = False
-                    break
+        pygame.quit()
+        sys.exit()
 
-                if game.selected_piece:
-                    if (row, col) in game.valid_moves:
-                        # Move the piece
-                        move_sequence = game.valid_moves[(row, col)]
-                        for i in range(len(move_sequence) - 1):
-                            game.move_piece(move_sequence[i], move_sequence[i + 1])
-                        # Turn switching is handled inside move_piece
-                    else:
-                        # Deselect the piece
-                        game.selected_piece = None
-                        game.valid_moves = {}
+    if (mode == "sa"):
+        pygame.init()
+        screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+        pygame.display.set_caption("Checkers")
+        clock = pygame.time.Clock()
+
+        # Create the game state and AI agent
+        game = GameState()
+        ai_agent = Agent()
+
+        running = True
+        while running:
+            # Clear the screen and draw the board
+            screen.fill(BOARD_LIGHT)
+            game.draw_board(screen)
+            pygame.display.flip()
+
+            # Handle AI's turn
+            if game.current_turn == AI_PIECE:
+                _, best_move_sequence = ai_agent.minimax(game, ai_agent.max_depth, float('-inf'), float('inf'), True)
+                if best_move_sequence:
+                    for i in range(len(best_move_sequence) - 1):
+                        game.move_piece(best_move_sequence[i], best_move_sequence[i + 1])
+                    # Turn switching is handled inside move_piece
                 else:
-                    if (row, col) in player_moves:
-                        # Select the piece
-                        game.selected_piece = (row, col)
-                        game.valid_moves = player_moves[(row, col)]
+                    print("AI has no valid moves. You win!")
+                    running = False
 
-        # Check if the game is over
-        if game.is_game_over():
-            print("Game Over!")
-            running = False
+            # Handle events (player's turn)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and game.current_turn == PLAYER_PIECE:
+                    x, y = pygame.mouse.get_pos()
+                    row = y // SQUARE_SIZE
+                    col = x // SQUARE_SIZE
 
-        # Limit the frame rate
-        clock.tick(60)  
+                    player_moves = game.get_all_player_moves(game.current_turn)
+                    if not player_moves:
+                        print("You have no valid moves. Game Over!")
+                        running = False
+                        break
 
-    pygame.quit()
-    sys.exit()
+                    if game.selected_piece:
+                        if (row, col) in game.valid_moves:
+                            # Move the piece
+                            move_sequence = game.valid_moves[(row, col)]
+                            for i in range(len(move_sequence) - 1):
+                                game.move_piece(move_sequence[i], move_sequence[i + 1])
+                            # Turn switching is handled inside move_piece
+                        else:
+                            # Deselect the piece
+                            game.selected_piece = None
+                            game.valid_moves = {}
+                    else:
+                        if (row, col) in player_moves:
+                            # Select the piece
+                            game.selected_piece = (row, col)
+                            game.valid_moves = player_moves[(row, col)]
+
+            # Check if the game is over
+            if game.is_game_over():
+                print("Game Over!")
+                running = False
+
+            # Limit the frame rate
+            clock.tick(60)  
+
+        pygame.quit()
+        sys.exit()
